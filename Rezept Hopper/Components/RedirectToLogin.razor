@@ -1,0 +1,11 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Nav
+
+<AuthorizeView>
+    <NotAuthorized>
+        @{
+            var returnUrl = Uri.EscapeDataString(Nav.Uri);
+            Nav.NavigateTo($"/login?returnUrl={returnUrl}", forceLoad: true);
+        }
+    </NotAuthorized>
+</AuthorizeView>

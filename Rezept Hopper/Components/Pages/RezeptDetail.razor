@@ -1,0 +1,136 @@
+@page "/rezepte/{Id:int}"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject Rezept_Hopper.Services.RecipeService RecipeService
+@inject Rezept_Hopper.Services.CurrentUserService CurrentUser
+@inject NavigationManager Nav
+
+<PageTitle>@(Recipe?.Title ?? "Rezept") – Rezept Hopper</PageTitle>
+
+@if (Recipe is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+        <div>
+            <a href="/rezepte" class="text-muted text-decoration-none small">← Alle Rezepte</a>
+            <h2 class="mt-1">@Recipe.Title</h2>
+        </div>
+        @if (IsOwner)
+        {
+            <div class="d-flex gap-2">
+                <a href="/rezepte/@Recipe.Id/bearbeiten" class="btn btn-outline-secondary btn-sm">✏️ Bearbeiten</a>
+                <button class="btn btn-outline-danger btn-sm" @onclick="DeleteAsync">🗑️ Löschen</button>
+            </div>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(Recipe.ImageUrl))
+    {
+        <img src="@Recipe.ImageUrl" class="img-fluid rounded mb-4" alt="@Recipe.Title" style="max-height:350px;object-fit:cover;width:100%" />
+    }
+
+    <div class="d-flex flex-wrap gap-3 mb-4 text-muted">
+        @if (Recipe.PrepTimeMinutes.HasValue)
+        {
+            <span>🥄 Vorbereitung: <strong>@Recipe.PrepTimeMinutes Min.</strong></span>
+        }
+        @if (Recipe.CookTimeMinutes.HasValue)
+        {
+            <span>🔥 Kochzeit: <strong>@Recipe.CookTimeMinutes Min.</strong></span>
+        }
+        @if (Recipe.Servings.HasValue)
+        {
+            <span>👥 Portionen: <strong>@Recipe.Servings</strong></span>
+        }
+        @if (!string.IsNullOrEmpty(Recipe.Cuisine))
+        {
+            <span>🌍 Küche: <strong>@Recipe.Cuisine</strong></span>
+        }
+        @if (!string.IsNullOrEmpty(Recipe.Difficulty))
+        {
+            <span>📊 Schwierigkeit: <strong>@Recipe.Difficulty</strong></span>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(Recipe.Description))
+    {
+        <p class="lead mb-4">@Recipe.Description</p>
+    }
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-bold">🛒 Zutaten</div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var ing in Recipe.Ingredients)
+                    {
+                        <li class="list-group-item">
+                            <span class="fw-semibold">@ing.Name</span>
+                            @if (!string.IsNullOrEmpty(ing.Amount) || !string.IsNullOrEmpty(ing.Unit))
+                            {
+                                <span class="text-muted float-end">@ing.Amount @ing.Unit</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-bold">📋 Zubereitung</div>
+                <div class="card-body">
+                    <ol class="ps-3">
+                        @foreach (var step in Recipe.Steps)
+                        {
+                            <li class="mb-3">@step.Instruction</li>
+                        }
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Recipe.SourceUrl))
+    {
+        <div class="mt-4 text-muted small">
+            Quelle: <a href="@Recipe.SourceUrl" target="_blank" rel="noopener noreferrer">@Recipe.SourceUrl</a>
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Rezept_Hopper.Data.Models.Recipe? Recipe { get; set; }
+    private bool IsOwner { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!CurrentUser.UserId.HasValue) return;
+
+        Recipe = await RecipeService.GetRecipeAsync(Id, CurrentUser.UserId.Value);
+        if (Recipe is not null)
+        {
+            IsOwner = true;
+        }
+        else
+        {
+            Recipe = await RecipeService.GetSharedRecipeAsync(Id, CurrentUser.UserId.Value);
+            IsOwner = false;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (!CurrentUser.UserId.HasValue || Recipe is null) return;
+        await RecipeService.DeleteRecipeAsync(Recipe.Id, CurrentUser.UserId.Value);
+        Nav.NavigateTo("/rezepte");
+    }
+}

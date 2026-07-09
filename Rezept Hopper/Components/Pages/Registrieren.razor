@@ -1,0 +1,92 @@
+@page "/registrieren"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Nav
+@inject Rezept_Hopper.Services.AuthService AuthService
+
+<PageTitle>Registrieren – Rezept Hopper</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        @{ Nav.NavigateTo("/", forceLoad: true); }
+    </Authorized>
+    <NotAuthorized>
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body p-4">
+                        <h3 class="card-title mb-4 text-center">🍴 Rezept Hopper</h3>
+                        <h5 class="mb-3">Konto erstellen</h5>
+
+                        @if (!string.IsNullOrEmpty(ErrorMessage))
+                        {
+                            <div class="alert alert-danger">@ErrorMessage</div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label">Benutzername</label>
+                            <input type="text" class="form-control" @bind="Username" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Passwort</label>
+                            <input type="password" class="form-control" @bind="Password" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Passwort bestätigen</label>
+                            <input type="password" class="form-control" @bind="PasswordConfirm" />
+                        </div>
+                        <button class="btn btn-primary w-100" @onclick="RegisterAsync" disabled="@IsLoading">
+                            @if (IsLoading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            Konto erstellen
+                        </button>
+
+                        <hr />
+                        <p class="text-center mb-0">
+                            Bereits ein Konto? <a href="/login">Anmelden</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string Username { get; set; } = string.Empty;
+    private string Password { get; set; } = string.Empty;
+    private string PasswordConfirm { get; set; } = string.Empty;
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; }
+
+    private async Task RegisterAsync()
+    {
+        ErrorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+        {
+            ErrorMessage = "Bitte alle Felder ausfüllen.";
+            return;
+        }
+
+        if (Password != PasswordConfirm)
+        {
+            ErrorMessage = "Passwörter stimmen nicht überein.";
+            return;
+        }
+
+        if (Password.Length < 6)
+        {
+            ErrorMessage = "Das Passwort muss mindestens 6 Zeichen lang sein.";
+            return;
+        }
+
+        IsLoading = true;
+        var (success, error) = await AuthService.RegisterAsync(Username, Password);
+        IsLoading = false;
+
+        if (success)
+            Nav.NavigateTo("/login");
+        else
+            ErrorMessage = error;
+    }
+}

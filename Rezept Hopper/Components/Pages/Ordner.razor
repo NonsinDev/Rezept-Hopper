@@ -1,0 +1,111 @@
+@page "/ordner"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject Rezept_Hopper.Services.FolderService FolderService
+@inject Rezept_Hopper.Services.CurrentUserService CurrentUser
+@inject NavigationManager Nav
+
+<PageTitle>Ordner – Rezept Hopper</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>📁 Ordner</h2>
+    <button class="btn btn-primary" @onclick="() => ShowCreate = true">+ Neuer Ordner</button>
+</div>
+
+@if (ShowCreate)
+{
+    <div class="card shadow-sm mb-4">
+        <div class="card-body p-4">
+            <h5>Neuen Ordner erstellen</h5>
+            <div class="mb-3">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-control" @bind="NewName" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Beschreibung (optional)</label>
+                <input type="text" class="form-control" @bind="NewDescription" />
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary" @onclick="() => ShowCreate = false">Abbrechen</button>
+                <button class="btn btn-success" @onclick="CreateAsync">Erstellen</button>
+            </div>
+        </div>
+    </div>
+}
+
+<h5 class="text-muted mb-3">Meine Ordner</h5>
+
+@if (MyFolders is null)
+{
+    <div class="spinner-border text-primary" role="status"></div>
+}
+else if (MyFolders.Count == 0 && (SharedFolders is null || SharedFolders.Count == 0))
+{
+    <p class="text-muted">Noch keine Ordner vorhanden.</p>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-3 g-3 mb-5">
+        @foreach (var folder in MyFolders)
+        {
+            <div class="col">
+                <div class="card shadow-sm h-100" style="cursor:pointer" @onclick="() => GoToFolder(folder.Id)">
+                    <div class="card-body">
+                        <h5 class="card-title">📁 @folder.Name</h5>
+                        @if (!string.IsNullOrEmpty(folder.Description))
+                        {
+                            <p class="card-text text-muted small">@folder.Description</p>
+                        }
+                        <span class="badge bg-secondary">@folder.FolderRecipes.Count Rezepte</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (SharedFolders?.Count > 0)
+    {
+        <h5 class="text-muted mb-3">Mit mir geteilt</h5>
+        <div class="row row-cols-1 row-cols-md-3 g-3">
+            @foreach (var folder in SharedFolders)
+            {
+                <div class="col">
+                    <div class="card shadow-sm h-100 border-info" style="cursor:pointer" @onclick="() => GoToFolder(folder.Id)">
+                        <div class="card-body">
+                            <h5 class="card-title">📁 @folder.Name</h5>
+                            <p class="text-muted small mb-1">von @folder.User.Username</p>
+                            <span class="badge bg-secondary">@folder.FolderRecipes.Count Rezepte</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<Rezept_Hopper.Data.Models.Folder>? MyFolders { get; set; }
+    private List<Rezept_Hopper.Data.Models.Folder>? SharedFolders { get; set; }
+    private bool ShowCreate { get; set; }
+    private string NewName { get; set; } = string.Empty;
+    private string? NewDescription { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!CurrentUser.UserId.HasValue) return;
+        MyFolders = await FolderService.GetUserFoldersAsync(CurrentUser.UserId.Value);
+        SharedFolders = await FolderService.GetSharedFoldersAsync(CurrentUser.UserId.Value);
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewName) || !CurrentUser.UserId.HasValue) return;
+        await FolderService.CreateFolderAsync(NewName, NewDescription, CurrentUser.UserId.Value);
+        NewName = string.Empty;
+        NewDescription = null;
+        ShowCreate = false;
+        MyFolders = await FolderService.GetUserFoldersAsync(CurrentUser.UserId.Value);
+    }
+
+    private void GoToFolder(int id) => Nav.NavigateTo("/ordner/" + id);
+}

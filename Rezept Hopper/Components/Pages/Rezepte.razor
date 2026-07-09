@@ -1,0 +1,78 @@
+@page "/rezepte"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject Rezept_Hopper.Services.RecipeService RecipeService
+@inject Rezept_Hopper.Services.CurrentUserService CurrentUser
+@inject NavigationManager Nav
+
+<PageTitle>Meine Rezepte – Rezept Hopper</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>🍽️ Meine Rezepte</h2>
+    <a href="/rezepte/hinzufuegen" class="btn btn-primary">
+        <span class="oi oi-plus" aria-hidden="true"></span> Rezept hinzufügen
+    </a>
+</div>
+
+@if (Recipes is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (Recipes.Count == 0)
+{
+    <div class="text-center py-5 text-muted">
+        <p class="fs-5">Noch keine Rezepte vorhanden.</p>
+        <a href="/rezepte/hinzufuegen" class="btn btn-outline-primary">Erstes Rezept hinzufügen</a>
+    </div>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        @foreach (var recipe in Recipes)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm" style="cursor:pointer" @onclick="() => GoToRecipe(recipe.Id)">
+                    @if (!string.IsNullOrEmpty(recipe.ImageUrl))
+                    {
+                        <img src="@recipe.ImageUrl" class="card-img-top" alt="@recipe.Title" style="height:180px;object-fit:cover" />
+                    }
+                    <div class="card-body">
+                        <h5 class="card-title">@recipe.Title</h5>
+                        @if (!string.IsNullOrEmpty(recipe.Description))
+                        {
+                            <p class="card-text text-muted small">@(recipe.Description.Length > 100 ? recipe.Description[..100] + "…" : recipe.Description)</p>
+                        }
+                    </div>
+                    <div class="card-footer d-flex gap-3 text-muted small">
+                        @if (recipe.PrepTimeMinutes.HasValue || recipe.CookTimeMinutes.HasValue)
+                        {
+                            <span>⏱️ @((recipe.PrepTimeMinutes ?? 0) + (recipe.CookTimeMinutes ?? 0)) Min.</span>
+                        }
+                        @if (recipe.Servings.HasValue)
+                        {
+                            <span>👥 @recipe.Servings Portionen</span>
+                        }
+                        @if (!string.IsNullOrEmpty(recipe.Difficulty))
+                        {
+                            <span>📊 @recipe.Difficulty</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Rezept_Hopper.Data.Models.Recipe>? Recipes { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.UserId.HasValue)
+            Recipes = await RecipeService.GetUserRecipesAsync(CurrentUser.UserId.Value);
+    }
+
+    private void GoToRecipe(int id) => Nav.NavigateTo("/rezepte/" + id);
+}

@@ -1,0 +1,27 @@
+﻿@page "/"
+
+<PageTitle>Rezept Hopper</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="text-center py-5">
+            <h1 class="display-4">🍴 Willkommen, @context.User.Identity?.Name!</h1>
+            <p class="lead text-muted mt-3">Dein persönliches digitales Kochbuch.</p>
+            <div class="d-flex justify-content-center gap-3 mt-4">
+                <a href="/rezepte" class="btn btn-primary btn-lg">Meine Rezepte</a>
+                <a href="/rezepte/hinzufuegen" class="btn btn-outline-primary btn-lg">Rezept hinzufügen</a>
+                <a href="/ordner" class="btn btn-outline-secondary btn-lg">Ordner</a>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="text-center py-5">
+            <h1 class="display-4">🍴 Rezept Hopper</h1>
+            <p class="lead text-muted mt-3">Speichere Rezepte aus dem Internet – automatisch mit KI ausgelesen.</p>
+            <div class="d-flex justify-content-center gap-3 mt-4">
+                <a href="/login" class="btn btn-primary btn-lg">Anmelden</a>
+                <a href="/registrieren" class="btn btn-outline-primary btn-lg">Konto erstellen</a>
+            </div>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>

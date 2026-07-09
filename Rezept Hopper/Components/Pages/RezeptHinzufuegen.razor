@@ -1,0 +1,190 @@
+@page "/rezepte/hinzufuegen"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject Rezept_Hopper.Services.GeminiService GeminiService
+@inject Rezept_Hopper.Services.PromptService PromptService
+@inject Rezept_Hopper.Services.RecipeService RecipeService
+@inject Rezept_Hopper.Services.CurrentUserService CurrentUser
+@inject NavigationManager Nav
+
+<PageTitle>Rezept hinzufügen – Rezept Hopper</PageTitle>
+
+<h2 class="mb-4">➕ Rezept hinzufügen</h2>
+
+@if (Step == 1)
+{
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            <h5 class="mb-3">Rezept-URL eingeben</h5>
+            <p class="text-muted">Gib die URL einer Rezept-Webseite ein. Die KI extrahiert automatisch alle Informationen.</p>
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="alert alert-danger">@ErrorMessage</div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">Rezept-URL</label>
+                <input type="url" class="form-control" placeholder="https://www.beispiel.de/rezept/..." @bind="Url" />
+            </div>
+            <button class="btn btn-primary" @onclick="ExtractAsync" disabled="@IsLoading">
+                @if (IsLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    <span>KI analysiert das Rezept…</span>
+                }
+                else
+                {
+                    <span>Rezept auslesen</span>
+                }
+            </button>
+        </div>
+    </div>
+}
+else if (Step == 2 && Extracted is not null)
+{
+    <div class="alert alert-info">Bitte überprüfe die extrahierten Informationen und passe sie bei Bedarf an.</div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body p-4">
+            <h5 class="mb-3">Grundinformationen</h5>
+
+            <div class="mb-3">
+                <label class="form-label">Titel</label>
+                <input type="text" class="form-control" @bind="Extracted.Title" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Beschreibung</label>
+                <textarea class="form-control" rows="3" @bind="Extracted.Description"></textarea>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Vorbereitungszeit (Min.)</label>
+                    <input type="number" class="form-control" @bind="Extracted.PrepTimeMinutes" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Kochzeit (Min.)</label>
+                    <input type="number" class="form-control" @bind="Extracted.CookTimeMinutes" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Portionen</label>
+                    <input type="number" class="form-control" @bind="Extracted.Servings" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Schwierigkeit</label>
+                    <select class="form-select" @bind="Extracted.Difficulty">
+                        <option value="">– wählen –</option>
+                        <option>Einfach</option>
+                        <option>Mittel</option>
+                        <option>Schwer</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3">
+                <label class="form-label">Küche</label>
+                <input type="text" class="form-control" @bind="Extracted.Cuisine" />
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body p-4">
+            <h5 class="mb-3">Zutaten</h5>
+            @foreach (var (ing, i) in Extracted.Ingredients.Select((x, i) => (x, i)))
+            {
+                <div class="row g-2 mb-2 align-items-center">
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" placeholder="Zutat" @bind="ing.Name" />
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" placeholder="Menge" @bind="ing.Amount" />
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" placeholder="Einheit" @bind="ing.Unit" />
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-outline-danger btn-sm w-100" @onclick="() => Extracted.Ingredients.RemoveAt(i)">✕</button>
+                    </div>
+                </div>
+            }
+            <button class="btn btn-outline-secondary btn-sm mt-2"
+                    @onclick="() => Extracted.Ingredients.Add(new Rezept_Hopper.Services.ExtractedIngredient())">
+                + Zutat hinzufügen
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body p-4">
+            <h5 class="mb-3">Zubereitung</h5>
+            @foreach (var (step, i) in Extracted.Steps.Select((x, i) => (x, i)))
+            {
+                <div class="d-flex gap-2 mb-2 align-items-start">
+                    <span class="badge bg-primary mt-2" style="min-width:28px">@(i + 1)</span>
+                    <textarea class="form-control" rows="2" @bind="Extracted.Steps[i]"></textarea>
+                    <button class="btn btn-outline-danger btn-sm mt-1" @onclick="() => Extracted.Steps.RemoveAt(i)">✕</button>
+                </div>
+            }
+            <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="() => Extracted.Steps.Add(string.Empty)">
+                + Schritt hinzufügen
+            </button>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-outline-secondary" @onclick="() => Step = 1">← Zurück</button>
+        <button class="btn btn-success" @onclick="SaveAsync" disabled="@IsSaving">
+            @if (IsSaving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            Rezept speichern
+        </button>
+    </div>
+}
+
+@code {
+    private int Step { get; set; } = 1;
+    private string Url { get; set; } = string.Empty;
+    private Rezept_Hopper.Services.ExtractedRecipe? Extracted { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; }
+    private bool IsSaving { get; set; }
+
+    private async Task ExtractAsync()
+    {
+        ErrorMessage = null;
+        if (string.IsNullOrWhiteSpace(Url))
+        {
+            ErrorMessage = "Bitte eine URL eingeben.";
+            return;
+        }
+
+        IsLoading = true;
+        try
+        {
+            var prompt = await PromptService.GetRecipePromptAsync();
+            Extracted = await GeminiService.ExtractRecipeAsync(Url, prompt);
+
+            if (Extracted is null)
+                ErrorMessage = "Die KI konnte kein Rezept aus dieser URL extrahieren.";
+            else
+                Step = 2;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Fehler bei der KI-Anfrage: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Extracted is null || !CurrentUser.UserId.HasValue) return;
+
+        IsSaving = true;
+        var recipe = await RecipeService.SaveRecipeAsync(Extracted, Url, CurrentUser.UserId.Value);
+        IsSaving = false;
+        Nav.NavigateTo($"/rezepte/{recipe.Id}");
+    }
+}
