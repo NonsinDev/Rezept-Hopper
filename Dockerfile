@@ -8,9 +8,9 @@ RUN dotnet restore "Rezept Hopper/Rezept Hopper.csproj"
 
 # Copy everything else and build
 COPY . .
-WORKDIR "/src/Rezept Hopper"
-# KORREKTUR: Explizit die csproj angeben und AppHost deaktivieren
-RUN dotnet publish "Rezept Hopper.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# KORREKTUR: Wir bleiben im Root (/src) und bauen mit absoluten Pfaden
+RUN dotnet publish "Rezept Hopper/Rezept Hopper.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime Stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS runtime
@@ -28,5 +28,4 @@ ENV ConnectionStrings__DefaultConnection="Data Source=/app/data/rezepthopper.db"
 
 EXPOSE 8080
 
-# KORREKTUR: Leerzeichen im DLL-Namen beibehalten
 ENTRYPOINT ["dotnet", "Rezept Hopper.dll"]
