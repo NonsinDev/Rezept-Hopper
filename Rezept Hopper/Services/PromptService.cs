@@ -1,6 +1,6 @@
 namespace Rezept_Hopper.Services;
 
-public class PromptService(IWebHostEnvironment env)
+public class PromptService
 {
     private string? _cachedPrompt;
 
@@ -8,8 +8,14 @@ public class PromptService(IWebHostEnvironment env)
     {
         if (_cachedPrompt is not null) return _cachedPrompt;
 
-        var path = Path.Combine(env.ContentRootPath, "Prompts", "recipe-extraction.md");
-        _cachedPrompt = await File.ReadAllTextAsync(path);
+        var assembly = typeof(PromptService).Assembly;
+        var resourceName = "Rezept_Hopper.Prompts.recipe-extraction.md";
+        
+        using var stream = assembly.GetManifestResourceStream(resourceName)
+            ?? throw new FileNotFoundException($"Embedded resource '{resourceName}' not found.");
+        
+        using var reader = new StreamReader(stream);
+        _cachedPrompt = await reader.ReadToEndAsync();
         return _cachedPrompt;
     }
 }
