@@ -1,0 +1,89 @@
+@page "/setup"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+@inject Rezept_Hopper.Services.AuthService AuthService
+
+<PageTitle>Setup – Rezept Hopper</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h3 class="card-title mb-4 text-center">🍴 Rezept Hopper</h3>
+                <h5 class="mb-3">Administrator erstellen</h5>
+                <p class="text-muted small">Willkommen! Erstelle deinen ersten Account. Dieser wird automatisch zum Administrator.</p>
+
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="alert alert-danger">@ErrorMessage</div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label">Benutzername</label>
+                    <input type="text" class="form-control" @bind="Username" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Passwort</label>
+                    <input type="password" class="form-control" @bind="Password" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Passwort bestätigen</label>
+                    <input type="password" class="form-control" @bind="PasswordConfirm" />
+                </div>
+                <button class="btn btn-primary w-100" @onclick="SetupAsync" disabled="@IsLoading">
+                    @if (IsLoading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    Administrator erstellen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string Username { get; set; } = string.Empty;
+    private string Password { get; set; } = string.Empty;
+    private string PasswordConfirm { get; set; } = string.Empty;
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Redirect if users already exist
+        if (await AuthService.HasAnyUsersAsync())
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+    }
+
+    private async Task SetupAsync()
+    {
+        ErrorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+        {
+            ErrorMessage = "Bitte alle Felder ausfüllen.";
+            return;
+        }
+
+        if (Password != PasswordConfirm)
+        {
+            ErrorMessage = "Passwörter stimmen nicht überein.";
+            return;
+        }
+
+        if (Password.Length < 6)
+        {
+            ErrorMessage = "Das Passwort muss mindestens 6 Zeichen lang sein.";
+            return;
+        }
+
+        IsLoading = true;
+        var (success, error) = await AuthService.RegisterAsync(Username, Password);
+        IsLoading = false;
+
+        if (success)
+            Nav.NavigateTo("/login", forceLoad: true);
+        else
+            ErrorMessage = error;
+    }
+}

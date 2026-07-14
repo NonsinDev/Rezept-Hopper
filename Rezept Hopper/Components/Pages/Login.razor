@@ -1,51 +1,57 @@
 @page "/login"
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Authorization
 @inject NavigationManager Nav
+@inject Rezept_Hopper.Services.AuthService AuthService
 
 <PageTitle>Anmelden – Rezept Hopper</PageTitle>
 
-<AuthorizeView>
-    <Authorized>
-        @{ Nav.NavigateTo("/", forceLoad: true); }
-    </Authorized>
-    <NotAuthorized>
-        <div class="row justify-content-center mt-5">
-            <div class="col-md-4">
-                <div class="card shadow-sm">
-                    <div class="card-body p-4">
-                        <h3 class="card-title mb-4 text-center">🍴 Rezept Hopper</h3>
-                        <h5 class="mb-3">Anmelden</h5>
+@if (IsLoading)
+{
+    <div class="d-flex justify-content-center mt-5">
+        <div class="spinner-border" role="status"></div>
+    </div>
+}
+else
+{
+    <AuthorizeView>
+        <Authorized>
+            @{ Nav.NavigateTo("/", forceLoad: true); }
+        </Authorized>
+        <NotAuthorized>
+            <div class="row justify-content-center mt-5">
+                <div class="col-md-4">
+                    <div class="card shadow-sm">
+                        <div class="card-body p-4">
+                            <h3 class="card-title mb-4 text-center">🍴 Rezept Hopper</h3>
+                            <h5 class="mb-3">Anmelden</h5>
 
-                        @if (ShowError)
-                        {
-                            <div class="alert alert-danger">Ungültiger Benutzername oder Passwort.</div>
-                        }
+                            @if (ShowError)
+                            {
+                                <div class="alert alert-danger">Ungültiger Benutzername oder Passwort.</div>
+                            }
 
-                        <form method="post" action="/account/login">
-                            <AntiforgeryToken />
-                            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+                            <form method="post" action="/account/login">
+                                <AntiforgeryToken />
+                                <input type="hidden" name="returnUrl" value="@ReturnUrl" />
 
-                            <div class="mb-3">
-                                <label class="form-label">Benutzername</label>
-                                <input type="text" name="username" class="form-control" required autofocus />
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Passwort</label>
-                                <input type="password" name="password" class="form-control" required />
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Anmelden</button>
-                        </form>
-
-                        <hr />
-                        <p class="text-center mb-0">
-                            Noch kein Konto? <a href="/registrieren">Jetzt registrieren</a>
-                        </p>
+                                <div class="mb-3">
+                                    <label class="form-label">Benutzername</label>
+                                    <input type="text" name="username" class="form-control" required autofocus />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Passwort</label>
+                                    <input type="password" name="password" class="form-control" required />
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Anmelden</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </NotAuthorized>
-</AuthorizeView>
+        </NotAuthorized>
+    </AuthorizeView>
+}
 
 @code {
     [SupplyParameterFromQuery(Name = "error")]
@@ -55,4 +61,20 @@
     private string? ReturnUrl { get; set; }
 
     private bool ShowError => Error == "1";
+    private bool IsLoading = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Redirect to setup if no users exist
+            if (!await AuthService.HasAnyUsersAsync())
+            {
+                Nav.NavigateTo("/setup", forceLoad: true);
+                return;
+            }
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
 }

@@ -1,0 +1,201 @@
+@page "/admin"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Rezept_Hopper.Data.Models
+@attribute [Authorize(Roles = "Admin")]
+@inject Rezept_Hopper.Services.AuthService AuthService
+@inject Rezept_Hopper.Services.CurrentUserService CurrentUserService
+
+<PageTitle>Benutzerverwaltung – Rezept Hopper</PageTitle>
+
+<div class="container mt-4">
+    <h2 class="mb-4">👥 Benutzerverwaltung</h2>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Neuen Benutzer erstellen</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(CreateMessage))
+                    {
+                        <div class="alert @(CreateSuccess ? "alert-success" : "alert-danger")">@CreateMessage</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Benutzername</label>
+                        <input type="text" class="form-control" @bind="NewUsername" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Passwort</label>
+                        <input type="password" class="form-control" @bind="NewPassword" />
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="isAdminCheck" @bind="NewIsAdmin" />
+                        <label class="form-check-label" for="isAdminCheck">Administrator</label>
+                    </div>
+                    <button class="btn btn-primary" @onclick="CreateUserAsync" disabled="@IsCreating">
+                        @if (IsCreating) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Benutzer erstellen
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Alle Benutzer</h5>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="LoadUsersAsync">
+                        🔄 Aktualisieren
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if (Users is null)
+                    {
+                        <div class="p-3 text-center">
+                            <span class="spinner-border spinner-border-sm"></span> Laden...
+                        </div>
+                    }
+                    else if (Users.Count == 0)
+                    {
+                        <div class="p-3 text-muted">Keine Benutzer vorhanden.</div>
+                    }
+                    else
+                    {
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Benutzername</th>
+                                    <th>Rolle</th>
+                                    <th>Erstellt</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in Users)
+                                {
+                                    <tr>
+                                        <td>@user.Username</td>
+                                        <td>
+                                            @if (user.IsAdmin)
+                                            {
+                                                <span class="badge bg-primary">Admin</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Benutzer</span>
+                                            }
+                                        </td>
+                                        <td>@user.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                        <td class="text-end">
+                                            @if (user.Id != CurrentUserId)
+                                            {
+                                                <div class="btn-group btn-group-sm">
+                                                    @if (user.IsAdmin)
+                                                    {
+                                                        <button class="btn btn-outline-warning" @onclick="() => ToggleAdminAsync(user)" title="Admin-Rechte entziehen">
+                                                            ⬇️
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <button class="btn btn-outline-primary" @onclick="() => ToggleAdminAsync(user)" title="Zum Admin machen">
+                                                            ⬆️
+                                                        </button>
+                                                    }
+                                                    <button class="btn btn-outline-danger" @onclick="() => DeleteUserAsync(user)" title="Benutzer löschen">
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">(Du)</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<User>? Users;
+    private int CurrentUserId;
+
+    private string NewUsername { get; set; } = string.Empty;
+    private string NewPassword { get; set; } = string.Empty;
+    private bool NewIsAdmin { get; set; }
+    private string? CreateMessage { get; set; }
+    private bool CreateSuccess { get; set; }
+    private bool IsCreating { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        CurrentUserId = CurrentUserService.UserId ?? 0;
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        Users = await AuthService.GetAllUsersAsync();
+    }
+
+    private async Task CreateUserAsync()
+    {
+        CreateMessage = null;
+
+        if (string.IsNullOrWhiteSpace(NewUsername) || string.IsNullOrWhiteSpace(NewPassword))
+        {
+            CreateMessage = "Bitte alle Felder ausfüllen.";
+            CreateSuccess = false;
+            return;
+        }
+
+        if (NewPassword.Length < 6)
+        {
+            CreateMessage = "Das Passwort muss mindestens 6 Zeichen lang sein.";
+            CreateSuccess = false;
+            return;
+        }
+
+        IsCreating = true;
+        var (success, error) = await AuthService.RegisterAsync(NewUsername, NewPassword, NewIsAdmin);
+        IsCreating = false;
+
+        if (success)
+        {
+            CreateMessage = $"Benutzer '{NewUsername}' erfolgreich erstellt.";
+            CreateSuccess = true;
+            NewUsername = string.Empty;
+            NewPassword = string.Empty;
+            NewIsAdmin = false;
+            await LoadUsersAsync();
+        }
+        else
+        {
+            CreateMessage = error;
+            CreateSuccess = false;
+        }
+    }
+
+    private async Task ToggleAdminAsync(User user)
+    {
+        await AuthService.SetAdminStatusAsync(user.Id, !user.IsAdmin);
+        await LoadUsersAsync();
+    }
+
+    private async Task DeleteUserAsync(User user)
+    {
+        await AuthService.DeleteUserAsync(user.Id);
+        await LoadUsersAsync();
+    }
+}

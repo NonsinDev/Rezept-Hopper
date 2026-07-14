@@ -72,7 +72,8 @@ app.MapPost("/account/login", async (HttpContext ctx, AuthService authService) =
     var claims = new List<Claim>
     {
         new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new(ClaimTypes.Name, user.Username)
+        new(ClaimTypes.Name, user.Username),
+        new(ClaimTypes.Role, user.IsAdmin ? "Admin" : "User")
     };
     var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
     await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));

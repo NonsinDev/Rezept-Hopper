@@ -15,15 +15,46 @@ public class AuthService(AppDbContext db)
         return VerifyPassword(password, user.PasswordHash, user.Salt) ? user : null;
     }
 
-    public async Task<(bool Success, string? Error)> RegisterAsync(string username, string password)
+    public async Task<(bool Success, string? Error)> RegisterAsync(string username, string password, bool? isAdmin = null)
     {
         if (await db.Users.AnyAsync(u => u.Username == username))
             return (false, "Benutzername ist bereits vergeben.");
 
+        // First user is always admin
+        var makeAdmin = isAdmin ?? !await db.Users.AnyAsync();
+
         var (hash, salt) = HashPassword(password);
-        db.Users.Add(new User { Username = username, PasswordHash = hash, Salt = salt });
+        db.Users.Add(new User { Username = username, PasswordHash = hash, Salt = salt, IsAdmin = makeAdmin });
         await db.SaveChangesAsync();
         return (true, null);
+    }
+
+    public async Task<bool> HasAnyUsersAsync()
+    {
+        return await db.Users.AnyAsync();
+    }
+
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await db.Users.OrderBy(u => u.Username).ToListAsync();
+    }
+
+    public async Task<bool> DeleteUserAsync(int userId)
+    {
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return false;
+        db.Users.Remove(user);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> SetAdminStatusAsync(int userId, bool isAdmin)
+    {
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return false;
+        user.IsAdmin = isAdmin;
+        await db.SaveChangesAsync();
+        return true;
     }
 
     private static (string Hash, string Salt) HashPassword(string password)
