@@ -10,7 +10,9 @@ public class GeminiService(IConfiguration config, IHttpClientFactory httpClientF
 
     public async Task<ExtractedRecipe?> ExtractRecipeAsync(string url, string prompt)
     {
-        var apiKey = config["Gemini:ApiKey"] ?? throw new InvalidOperationException("Gemini API Key nicht konfiguriert.");
+        var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") 
+            ?? config["Gemini:ApiKey"] 
+            ?? throw new InvalidOperationException("Gemini API Key nicht konfiguriert.");
         var client = httpClientFactory.CreateClient();
 
         var fullPrompt = prompt.Replace("{URL}", url);
