@@ -1,4 +1,4 @@
-# Build Stage
+# Build Stage (Nutzt das stabile .NET 9 SDK)
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
@@ -9,10 +9,10 @@ RUN dotnet restore "Rezept Hopper/Rezept Hopper.csproj"
 # Copy everything else and build
 COPY . .
 
-# KORREKTUR: Wir bleiben im Root (/src) und bauen mit absoluten Pfaden
+# Wir bleiben im Root (/src) und bauen mit absoluten Pfaden
 RUN dotnet publish "Rezept Hopper/Rezept Hopper.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-# Runtime Stage
+# Runtime Stage (Nutzt die stabile .NET 9 Runtime)
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 
@@ -28,4 +28,4 @@ ENV ConnectionStrings__DefaultConnection="Data Source=/app/data/rezepthopper.db"
 
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "Rezept Hopper.dll"]
+ENTRYPOINT ["dotnet", "Rezept_Hopper.dll"]
