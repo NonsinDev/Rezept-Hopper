@@ -1,14 +1,14 @@
+version: '3.8'
+
 services:
-  rezepthopper:
+  rezept-hopper:
     build: .
-    container_name: rezepthopper
+    container_name: rezept-hopper
     ports:
-      - "8080:8080"
-    environment:
-      - Gemini__ApiKey=${GEMINI_API_KEY}
+      - "8080:8080" # Container lauscht intern auf 8080 (siehe ENV ASPNETCORE_URLS)
     volumes:
-      - rezepthopper-data:/app/data
+      - rezept_hopper_data:/app/data # Sichert deine SQLite-Datenbank auf dem Host-Server
     restart: unless-stopped
 
 volumes:
-  rezepthopper-data:
+  rezept_hopper_data:
